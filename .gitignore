@@ -2,4 +2,5 @@
 .DS_Store
 __pycache__/
 *.pyc
-issue_location/
+issue_location/*
+!issue_location/dataset_location_issue.json
