@@ -1,0 +1,9 @@
+persona_row_id,MR,Attribute,Value,n,unparsed,accuracy,precision,recall,f1,pass_rate
+1,MR9,Seniority,Expert,1000.0,0.0,0.497,0.2,0.002,0.004,0.993
+2,MR9,Seniority,Fellow,1000.0,0.0,0.494,0.3125,0.01,0.0194,0.984
+3,MR9,Seniority,Intern,1000.0,0.0,0.493,0.3158,0.012,0.0231,0.981
+4,MR9,Seniority,Junior,1000.0,0.0,0.497,0.3846,0.01,0.0195,0.987
+5,MR9,Seniority,Mid,1000.0,0.0,0.494,0.2,0.004,0.0078,0.99
+6,MR9,Seniority,Principal,1000.0,0.0,0.485,0.3585,0.038,0.0687,0.947
+7,MR9,Seniority,Senior,1000.0,0.0,0.489,0.3226,0.02,0.0377,0.969
+8,MR9,Seniority,Staff,1000.0,0.0,0.496,0.4231,0.022,0.0418,0.974

@@ -1,0 +1,6 @@
+langchain
+langchain-openai
+langchain-google-genai
+openai
+python-dotenv
+rdflib

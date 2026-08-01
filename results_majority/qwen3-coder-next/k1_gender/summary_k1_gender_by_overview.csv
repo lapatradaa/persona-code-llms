@@ -1,0 +1,2 @@
+n,TP,FP,TN,FN,unparsed,accuracy,precision,recall,f1,pass_rate
+12000,619,878,5122,5381,0,0.4784,0.4135,0.1032,0.1651,0.9022
