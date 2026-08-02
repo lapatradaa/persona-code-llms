@@ -80,6 +80,7 @@ for attr in ATTRS:
     ax.set_yticks(list(y))
     ax.set_yticklabels(combo_values)
     ax.set_xlim(0.5, 1.12)
+    ax.set_xticks([0.5, 0.6, 0.7, 0.8, 0.9, 1.0])
     ax.set_xlabel("pass rate", fontsize=LABEL_FONTSIZE, color=TEXT_MUTED)
     ax.tick_params(axis="y", labelsize=LABEL_FONTSIZE, colors=TEXT_PRIMARY, length=0)
     ax.tick_params(axis="x", labelsize=LABEL_FONTSIZE, colors=TEXT_MUTED, length=0)
@@ -98,5 +99,11 @@ for attr in ATTRS:
 
     out_path = f"pass_rate_majority_{attr.lower()}_" + "_vs_".join(attr_models) + ".pdf"
     fig.savefig(out_path, facecolor=SURFACE)
+
+    os.makedirs("docs/figures", exist_ok=True)
+    png_path = f"docs/figures/pass_rate_{attr.lower()}.png"
+    fig.savefig(png_path, facecolor=SURFACE, dpi=200)
+
     plt.close(fig)
     print(f"Saved {out_path}")
+    print(f"Saved {png_path}")
