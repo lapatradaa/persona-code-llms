@@ -8,13 +8,18 @@ For each line of code, the model is asked once with no persona (baseline) and on
 under each persona in a metamorphic-relation (MR) attribute sweep, holding the code,
 target line, and task fixed. The package reproduces two analyses:
 
-- **RQ1 (how much):** comparing a persona's predictions against the paired baseline's
-  on the same lines gives **pass_rate** (agreement with baseline) and per-attribute
-  accuracy/precision/recall/F1.
-- **RQ2 (why):** the model returns a one-sentence `reason` with every prediction; we
-  isolate the cases where a persona changed the verdict and analyze these reasons by
+This package addresses two research questions:
+
+- **RQ1 — To what extent does the changing persona of Code LLMs affect their review
+  decisions?** For each line, we compare a persona's prediction against the paired
+  no-persona baseline on the same line, giving **pass_rate** (agreement with baseline)
+  and per-attribute accuracy/precision/recall/F1.
+- **RQ2 — What are the underlying reasons that the Code LLMs change their review
+  decisions?** The model returns a one-sentence `reason` with every prediction; we
+  isolate the cases where a persona flipped the verdict and analyze these reasons by
   hand to explain the shift.
 
+  
 ## Repository structure
 
 ```
