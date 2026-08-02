@@ -2,25 +2,33 @@
 
 Replication package for a study measuring how demographic/role **persona** system
 prompts (e.g. gender, seniority, review style) shift an LLM's line-level
-issue-localization accuracy, relative to a no-persona baseline.
+issue-localization, relative to a no-persona baseline.
 
 For each line of code, the model is asked once with no persona (baseline) and once
-under each persona in a metamorphic-relation (MR) attribute sweep. Comparing a
-persona's predictions against the paired baseline's on the same lines gives
-**pass_rate** (agreement with baseline) and per-attribute accuracy/precision/recall/F1,
-which is what this package reproduces.
+under each persona in a metamorphic-relation (MR) attribute sweep, holding the code,
+target line, and task fixed. The package reproduces two analyses:
+
+- **RQ1 (how much):** comparing a persona's predictions against the paired baseline's
+  on the same lines gives **pass_rate** (agreement with baseline) and per-attribute
+  accuracy/precision/recall/F1.
+- **RQ2 (why):** the model returns a one-sentence `reason` with every prediction; we
+  isolate the cases where a persona changed the verdict and analyze these reasons by
+  hand to explain the shift.
 
 ## Repository structure
 
 ```
 .
-├── task_prompt.md               # task instructions template ({code}/{line} placeholders)
+├── task_prompt.md                # task instructions template ({code}/{line} placeholders)
 ├── user_prompt.py                # persona definitions: attributes, ontology-backed value
 │                                  # pools, prompt-building (build(), build_attribute_sweep())
 ├── run_line_experiment.py        # calls the LLM: baseline + persona sweep -> results CSV
 ├── analyze_line.py               # accuracy/precision/recall/F1 + pass_rate vs. baseline
 ├── majority_vote.py              # collapses 3 repeated rounds into a 2-of-3 majority vote
 ├── plot_pass_rate_majority_split.py  # renders the pass_rate figures from results_majority/
+├── extract_changed_reasons.py    # RQ2: pull changed (persona vs baseline) cases + reasons
+│                                  #      for manual analysis
+├── rq2_analysis.csv              # RQ2: manually coded sample of changed cases (60 rows)
 │
 ├── issue_location/
 │   └── dataset_location_issue.json   # 1,000 labeled entries: {row_id, code, line_number, issue}
@@ -46,7 +54,7 @@ which is what this package reproduces.
 user_prompt.py (persona defs)
         │
         ▼
-run_line_experiment.py  ──calls LLM──▶  results_<name>.csv
+run_line_experiment.py  ──calls LLM──▶  results_<name>.csv   (predicted_label + reason)
         │
         ▼
 analyze_line.py  ──▶  summary_*_by_persona.csv, summary_*_by_overview.csv
@@ -54,8 +62,9 @@ analyze_line.py  ──▶  summary_*_by_persona.csv, summary_*_by_overview.csv
         ▼
 majority_vote.py  (collapse 3 independent rounds into one 2-of-3 consensus)
         │
-        ▼
-results_majority/  ──▶  plot_pass_rate_majority_split.py  ──▶  figures
+        ├─▶  results_majority/  ──▶  plot_pass_rate_majority_split.py  ──▶  figures   (RQ1)
+        │
+        └─▶  results/ (per-round reasons)  ──▶  extract_changed_reasons.py  ──▶  manual coding   (RQ2)
 ```
 
 - **`user_prompt.py`** — 10 attributes (Gender, Race, Nationality, Culture, AgeRange,
@@ -78,12 +87,19 @@ results_majority/  ──▶  plot_pass_rate_majority_split.py  ──▶  figur
   with identical ground truth.
 - **`majority_vote.py`** — this study runs each experiment 3 times (to denoise
   single-call jitter) and takes the majority label per (persona, entry) across rounds;
-  ties are recorded as unparsed. Only the resulting `results_majority/` consensus is
-  published here — the 3 individual rounds are not included.
+  ties are recorded as unparsed. Note that the majority `reason` column records the
+  per-round votes, not a sentence; the original reason text stays in the per-round
+  `results*/` files used by RQ2.
 - **`plot_pass_rate_majority_split.py`** — reads
   `results_majority/<model>/k1_<attribute>/summary_k1_<attribute>_by_persona.csv` for
-  Gender, ReviewStyle, and Seniority and renders one horizontal-bar PDF per attribute,
-  one bar per persona value per model.
+  Gender, ReviewStyle, and Seniority and renders one bar chart per attribute, one bar
+  per persona value per model.
+- **`extract_changed_reasons.py`** — RQ2 support. Joins a persona results CSV against
+  its baseline on `entry_idx`, keeps only the lines whose verdict changed, and pairs
+  each persona reason with the baseline reason on the same line, together with the
+  direction of the change (`1->0` or `0->1`). It labels nothing automatically; it only
+  assembles the evidence for manual coding. Reads from a per-round `results*/` tree
+  (which still contains the reason sentences), not `results_majority/`.
 
 ## Dataset
 
@@ -94,17 +110,20 @@ tracked in the repo (everything else under `issue_location/` is gitignored).
 ## Ontology dependency (not included)
 
 `user_prompt.py` loads its persona attribute value pools from an external Turtle
-ontology file via `rdflib`, at a hardcoded absolute path
-(`ONTOLOGY_PATH` at the top of the file). That file is **not part of this repository**.
-To reproduce persona generation on another machine, obtain the ontology file and update
-`ONTOLOGY_PATH` to point at your local copy.
+ontology file via `rdflib`, at a hardcoded absolute path (`ONTOLOGY_PATH` at the top of
+the file). That file is **not part of this repository**. To reproduce persona generation
+on another machine, obtain the ontology file and update `ONTOLOGY_PATH` to point at your
+local copy.
 
 ## Results
 
+### RQ1 — Pass rate
+
 Pass rate (agreement with the no-persona baseline) per persona value, qwen3-coder-next
-vs. deepseek-v4-flash — lower means the persona shifts predictions away from baseline
-more often. Full data behind these charts is in `results_majority/`; PDF originals are
-in the repo root.
+vs. deepseek-v4-flash. A lower pass rate means the persona shifts predictions away from
+baseline more often; a pass rate of 1.0 means the persona changed nothing. Values are
+the 2-of-3 majority vote over three runs. Full data behind these charts is in
+`results_majority/`; PDF originals are in the repo root.
 
 **Gender**
 ![Pass rate by gender persona](docs/figures/pass_rate_gender.png)
@@ -115,24 +134,61 @@ in the repo root.
 **Seniority**
 ![Pass rate by seniority persona](docs/figures/pass_rate_seniority.png)
 
+### RQ2 — Reasons for verdict changes
+
+Beyond how often personas change verdicts, we examine why, by manually reading the
+model's stated reason on every case where a persona flipped the verdict versus the
+no-persona baseline. `rq2_analysis.csv` is the coded sample: 60 changed cases for
+Qwen3-Coder-Next, balanced 10 cases per flip direction (`1->0`, `0->1`) across three
+representative persona values (gender = trans woman, review style = nitpicky,
+seniority = senior).
+
+Every flip falls into one of three codes, and the code tracks the flip direction
+exactly — `1->0` cases are always a **Dismissal**, `0->1` cases split into a
+**Fabricated defect** or a **Cosmetic nitpick**:
+
+| code | direction | meaning | n | share |
+|---|---|---|---:|---:|
+| Dismissal | 1→0 | persona waves off a real issue the baseline caught | 30 | 50% |
+| Fabricated defect | 0→1 | persona invents an unfounded technical claim | 21 | 35% |
+| Cosmetic nitpick | 0→1 | persona flags a trivial/stylistic detail as a defect | 9 | 15% |
+
+| attribute (value) | Dismissal | Fabricated defect | Cosmetic nitpick |
+|---|---:|---:|---:|
+| gender (TransWoman) | 10 | 7 | 3 |
+| reviewstyle (Nitpicky) | 10 | 5 | 5 |
+| seniority (Senior) | 10 | 9 | 1 |
+
+Checking each flip against ground truth: only 20/60 (33%) flips moved the verdict
+*toward* the correct answer — the other 40/60 (67%) moved it *away* from the correct
+answer, i.e. persona-induced flips are net harmful to accuracy by roughly 2:1. None of
+the reasons ever mention the assigned persona, and the same borderline lines get
+re-flagged under unrelated attributes — the change tracks the persona, not the code.
+
 ## Running the pipeline
 
 ```bash
 pip install -r requirements.txt
 ```
 
-1. `run_line_experiment.py --live ...` — call the LLM (baseline or a persona sweep), writes a results CSV. Dry-run without `--live`; see `--help` for model/output options.
-2. `analyze_line.py --results ... --baseline ... --prefix ...` — compute accuracy/precision/recall/F1 + pass_rate for one results file against its baseline.
-3. `majority_vote.py --round-files ... --out ...` — after running steps 1-2 three times, collapse the three rounds into one majority-vote results file.
-4. `plot_pass_rate_majority_split.py` — render the pass_rate figures from `results_majority/`.
+1. `run_line_experiment.py --live ...` — call the LLM (baseline or a persona sweep),
+   writes a results CSV. Dry-run without `--live`; see `--help` for model/output options.
+2. `analyze_line.py --results ... --baseline ... --prefix ...` — compute
+   accuracy/precision/recall/F1 + pass_rate for one results file against its baseline.
+3. `majority_vote.py --round-files ... --out ...` — after running steps 1-2 three times,
+   collapse the three rounds into one majority-vote results file.
+4. `plot_pass_rate_majority_split.py` — render the pass_rate figures from
+   `results_majority/` (RQ1).
+5. `extract_changed_reasons.py --model ... --attr ...` — assemble the changed-verdict
+   cases and their reasons for manual analysis (RQ2).
 
-An API key (`.env`, gitignored) is only needed for step 1. Since `results_majority/` is
-already checked into this repo, steps 2-4 can be re-run directly on the included data
+An API key (`.env`, gitignored) is only needed for step 1. Since the experiment output is
+already checked into this repo, steps 2-5 can be re-run directly on the included data
 without spending anything on API calls.
 
 ## Key guarantee
 
-`pass_rate` is only ever computed between a persona results file and a baseline file
-that share the exact same dataset entries and ground truth — `analyze_line.py`
-(`validate_paired_baseline`) enforces this and refuses otherwise, so persona and
-baseline predictions are always compared like-for-like.
+`pass_rate` is only ever computed between a persona results file and a baseline file that
+share the exact same dataset entries and ground truth. `analyze_line.py`
+(`validate_paired_baseline`) enforces this and refuses otherwise, so persona and baseline
+predictions are always compared like-for-like.
