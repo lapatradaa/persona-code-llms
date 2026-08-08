@@ -6,20 +6,19 @@ issue-localization, relative to a no-persona baseline.
 
 For each line of code, the model is asked once with no persona (baseline) and once
 under each persona in a metamorphic-relation (MR) attribute sweep, holding the code,
-target line, and task fixed. The package reproduces two analyses:
-
-This package addresses two research questions:
+target line, and task fixed. This package addresses three research questions:
 
 - **RQ1 — To what extent does the changing persona of Code LLMs affect their review
   decisions?** For each line, we compare a persona's prediction against the paired
-  no-persona baseline on the same line, giving **pass_rate** (agreement with baseline)
-  and per-attribute accuracy/precision/recall/F1.
-- **RQ2 — What are the underlying reasons that the Code LLMs change their review
+  no-persona baseline on the same line, giving **pass_rate** (agreement with baseline).
+- **RQ2 — Does changing persona improve review accuracy?** We compare each persona's
+  predictions, and the no-persona baseline's, against the human-annotated ground truth,
+  giving per-attribute **accuracy**.
+- **RQ3 — What are the underlying reasons that the Code LLMs change their review
   decisions?** The model returns a one-sentence `reason` with every prediction; we
   isolate the cases where a persona flipped the verdict and analyze these reasons by
   hand to explain the shift.
 
-  
 ## Repository structure
 
 ```
@@ -30,10 +29,11 @@ This package addresses two research questions:
 ├── run_line_experiment.py        # calls the LLM: baseline + persona sweep -> results CSV
 ├── analyze_line.py               # accuracy/precision/recall/F1 + pass_rate vs. baseline
 ├── majority_vote.py              # collapses 3 repeated rounds into a 2-of-3 majority vote
-├── plot_pass_rate_majority_split.py  # renders the pass_rate figures from results_majority/
-├── extract_changed_reasons.py    # RQ2: pull changed (persona vs baseline) cases + reasons
+├── plot_pass_rate_majority.py    # RQ1: renders the pass_rate figure from results_majority/
+├── plot_accuracy_majority.py     # RQ2: renders the accuracy (vs. ground truth) figure
+├── extract_changed_reasons.py    # RQ3: pull changed (persona vs baseline) cases + reasons
 │                                  #      for manual analysis
-├── rq2_analysis.csv              # RQ2: manually coded sample of changed cases (60 rows)
+├── rq2_analysis.csv              # RQ3: manually coded sample of changed cases (60 rows)
 │
 ├── issue_location/
 │   └── dataset_location_issue.json   # 1,000 labeled entries: {row_id, code, line_number, issue}
@@ -67,9 +67,11 @@ analyze_line.py  ──▶  summary_*_by_persona.csv, summary_*_by_overview.csv
         ▼
 majority_vote.py  (collapse 3 independent rounds into one 2-of-3 consensus)
         │
-        ├─▶  results_majority/  ──▶  plot_pass_rate_majority_split.py  ──▶  figures   (RQ1)
+        ├─▶  results_majority/  ──▶  plot_pass_rate_majority.py   ──▶  pass_rate figure   (RQ1)
         │
-        └─▶  results/ (per-round reasons)  ──▶  extract_changed_reasons.py  ──▶  manual coding   (RQ2)
+        ├─▶  results_majority/  ──▶  plot_accuracy_majority.py   ──▶  accuracy figure     (RQ2)
+        │
+        └─▶  results/ (per-round reasons)  ──▶  extract_changed_reasons.py  ──▶  manual coding   (RQ3)
 ```
 
 - **`user_prompt.py`** — 10 attributes (Gender, Race, Nationality, Culture, AgeRange,
@@ -94,12 +96,17 @@ majority_vote.py  (collapse 3 independent rounds into one 2-of-3 consensus)
   single-call jitter) and takes the majority label per (persona, entry) across rounds;
   ties are recorded as unparsed. Note that the majority `reason` column records the
   per-round votes, not a sentence; the original reason text stays in the per-round
-  `results*/` files used by RQ2.
-- **`plot_pass_rate_majority_split.py`** — reads
+  `results*/` files used by RQ3.
+- **`plot_pass_rate_majority.py`** — reads
   `results_majority/<model>/k1_<attribute>/summary_k1_<attribute>_by_persona.csv` for
-  Gender, ReviewStyle, and Seniority and renders one bar chart per attribute, one bar
-  per persona value per model.
-- **`extract_changed_reasons.py`** — RQ2 support. Joins a persona results CSV against
+  Gender, ReviewStyle, and Seniority and renders a single 1x3 grid of grouped bar
+  charts (one panel per attribute, one bar per persona value per model).
+- **`plot_accuracy_majority.py`** — same data source and layout as
+  `plot_pass_rate_majority.py`, plus a leading Baseline panel from
+  `results_majority/<model>/baseline/summary_baseline_overview.csv`, but plots
+  `accuracy` (vs. ground truth) instead of `pass_rate` (vs. baseline). Answers RQ2:
+  whether any persona value raises accuracy over the no-persona baseline.
+- **`extract_changed_reasons.py`** — RQ3 support. Joins a persona results CSV against
   its baseline on `entry_idx`, keeps only the lines whose verdict changed, and pairs
   each persona reason with the baseline reason on the same line, together with the
   direction of the change (`1->0` or `0->1`). It labels nothing automatically; it only
@@ -130,16 +137,32 @@ baseline more often; a pass rate of 1.0 means the persona changed nothing. Value
 the 2-of-3 majority vote over three runs. Full data behind these charts is in
 `results_majority/`; PDF originals are in the repo root.
 
-**Gender**
-![Pass rate by gender persona](docs/figures/pass_rate_gender.png)
+![Pass rate by persona, Gender/ReviewStyle/Seniority](docs/figures/pass_rate.png)
 
-**Review style**
-![Pass rate by review-style persona](docs/figures/pass_rate_reviewstyle.png)
+No persona value reaches a pass rate of 1.0 for either model, i.e. every persona
+changes at least one verdict. Qwen3-Coder-Next is markedly more persona-sensitive
+(0.83–0.98) than DeepSeek-v4-Flash (0.87–1.00), and within Qwen3-Coder-Next the lowest
+pass rates cluster on gender-diverse identities (TransWoman 0.83, Genderqueer 0.86,
+TransMan 0.87), the Nitpicky review style (0.87), and the highest-authority seniority
+labels (Staff 0.94, Senior 0.95).
 
-**Seniority**
-![Pass rate by seniority persona](docs/figures/pass_rate_seniority.png)
+### RQ2 — Accuracy
 
-### RQ2 — Reasons for verdict changes
+Accuracy against the human-annotated ground truth, same class-balanced 1,000-line set,
+same 2-of-3 majority vote. The leftmost panel is the no-persona baseline; the other
+three sweep one persona attribute at a time.
+
+![Accuracy by persona, Baseline/Gender/ReviewStyle/Seniority](docs/figures/accuracy.png)
+
+Both models sit at essentially chance level (Qwen3-Coder-Next 0.499, DeepSeek-v4-Flash
+0.500) at baseline on this balanced set, and no persona value raises either model above
+its own baseline. DeepSeek-v4-Flash stays flat (0.48–0.50) across almost every persona;
+Qwen3-Coder-Next instead drops further under the same values that produced the lowest
+RQ1 pass rates — TransWoman (0.457), Genderqueer (0.460), and Nitpicky (0.472) are its
+three lowest-accuracy personas. In other words, the personas that change the most
+verdicts are not making the reviewer more correct — RQ3 explains why.
+
+### RQ3 — Reasons for verdict changes
 
 Beyond how often personas change verdicts, we examine why, by manually reading the
 model's stated reason on every case where a persona flipped the verdict versus the
@@ -182,13 +205,15 @@ pip install -r requirements.txt
    accuracy/precision/recall/F1 + pass_rate for one results file against its baseline.
 3. `majority_vote.py --round-files ... --out ...` — after running steps 1-2 three times,
    collapse the three rounds into one majority-vote results file.
-4. `plot_pass_rate_majority_split.py` — render the pass_rate figures from
-   `results_majority/` (RQ1).
-5. `extract_changed_reasons.py --model ... --attr ...` — assemble the changed-verdict
-   cases and their reasons for manual analysis (RQ2).
+4. `plot_pass_rate_majority.py` — render the pass_rate figure from `results_majority/`
+   (RQ1).
+5. `plot_accuracy_majority.py` — render the accuracy figure from `results_majority/`
+   (RQ2).
+6. `extract_changed_reasons.py --model ... --attr ...` — assemble the changed-verdict
+   cases and their reasons for manual analysis (RQ3).
 
 An API key (`.env`, gitignored) is only needed for step 1. Since the experiment output is
-already checked into this repo, steps 2-5 can be re-run directly on the included data
+already checked into this repo, steps 2-6 can be re-run directly on the included data
 without spending anything on API calls.
 
 ## Key guarantee
