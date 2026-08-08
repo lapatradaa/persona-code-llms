@@ -14,10 +14,6 @@ target line, and task fixed. This package addresses three research questions:
 - **RQ2 — Does changing persona improve review accuracy?** We compare each persona's
   predictions, and the no-persona baseline's, against the human-annotated ground truth,
   giving per-attribute **accuracy**.
-- **RQ3 — What are the underlying reasons that the Code LLMs change their review
-  decisions?** The model returns a one-sentence `reason` with every prediction; we
-  isolate the cases where a persona flipped the verdict and analyze these reasons by
-  hand to explain the shift.
 
 ## Repository structure
 
@@ -159,39 +155,7 @@ Both models sit at essentially chance level (Qwen3-Coder-Next 0.499, DeepSeek-v4
 its own baseline. DeepSeek-v4-Flash stays flat (0.48–0.50) across almost every persona;
 Qwen3-Coder-Next instead drops further under the same values that produced the lowest
 RQ1 pass rates — TransWoman (0.457), Genderqueer (0.460), and Nitpicky (0.472) are its
-three lowest-accuracy personas. In other words, the personas that change the most
-verdicts are not making the reviewer more correct — RQ3 explains why.
-
-### RQ3 — Reasons for verdict changes
-
-Beyond how often personas change verdicts, we examine why, by manually reading the
-model's stated reason on every case where a persona flipped the verdict versus the
-no-persona baseline. `rq2_analysis.csv` is the coded sample: 60 changed cases for
-Qwen3-Coder-Next, balanced 10 cases per flip direction (`1->0`, `0->1`) across three
-representative persona values (gender = trans woman, review style = nitpicky,
-seniority = senior).
-
-Every flip falls into one of three codes, and the code tracks the flip direction
-exactly — `1->0` cases are always a **Dismissal**, `0->1` cases split into a
-**Fabricated defect** or a **Cosmetic nitpick**:
-
-| code | direction | meaning | n | share |
-|---|---|---|---:|---:|
-| Dismissal | 1→0 | persona waves off a real issue the baseline caught | 30 | 50% |
-| Fabricated defect | 0→1 | persona invents an unfounded technical claim | 21 | 35% |
-| Cosmetic nitpick | 0→1 | persona flags a trivial/stylistic detail as a defect | 9 | 15% |
-
-| attribute (value) | Dismissal | Fabricated defect | Cosmetic nitpick |
-|---|---:|---:|---:|
-| gender (TransWoman) | 10 | 7 | 3 |
-| reviewstyle (Nitpicky) | 10 | 5 | 5 |
-| seniority (Senior) | 10 | 9 | 1 |
-
-Checking each flip against ground truth: only 20/60 (33%) flips moved the verdict
-*toward* the correct answer — the other 40/60 (67%) moved it *away* from the correct
-answer, i.e. persona-induced flips are net harmful to accuracy by roughly 2:1. None of
-the reasons ever mention the assigned persona, and the same borderline lines get
-re-flagged under unrelated attributes — the change tracks the persona, not the code.
+three lowest-accuracy personas.
 
 ## Running the pipeline
 
