@@ -66,8 +66,6 @@ majority_vote.py  (collapse 3 independent rounds into one 2-of-3 consensus)
         ├─▶  results_majority/  ──▶  plot_pass_rate_majority.py   ──▶  pass_rate figure   (RQ1)
         │
         ├─▶  results_majority/  ──▶  plot_accuracy_majority.py   ──▶  accuracy figure     (RQ2)
-        │
-        └─▶  results/ (per-round reasons)  ──▶  extract_changed_reasons.py  ──▶  manual coding   (RQ3)
 ```
 
 - **`user_prompt.py`** — 10 attributes (Gender, Race, Nationality, Culture, AgeRange,
