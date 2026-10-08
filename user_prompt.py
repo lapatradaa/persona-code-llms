@@ -9,7 +9,7 @@ ATTRS = ["Gender", "Race", "Nationality", "Culture", "AgeRange", "ReviewStyle", 
          "Goal", "Seniority", "Domain"]
 
 # V5 is back to Turtle (V4 was OWL/XML .owx, needing owlready2 -- not needed anymore).
-ONTOLOGY_PATH = "/Users/lapatrada/Desktop/fairness in code review/ontology/Persona_Ontology_V5.ttl"
+ONTOLOGY_PATH = Path(__file__).parent / "ontology" / "Persona_Ontology_10attributes_APSEC2026.ttl"
 CRPF = Namespace("http://www.semanticweb.org/crpf#")
 
 
